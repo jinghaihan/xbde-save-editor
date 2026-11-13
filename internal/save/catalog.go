@@ -244,7 +244,9 @@ var EquipmentDefinitions = func() []EquipmentDefinition {
 		rule := rules[id]
 		chars := []int{}
 		for _, c := range strings.Split(rule[4], ",") {
-			chars = append(chars, number(c))
+			if c != "" {
+				chars = append(chars, number(c))
+			}
 		}
 		out = append(out, EquipmentDefinition{id, number(rule[1]), number(rule[2]), number(r[1]), number(r[2]), number(r[3]), number(r[4]), number(rule[3]), ItemName(id), chars})
 	}
