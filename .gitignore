@@ -10,3 +10,5 @@ private-data/
 *.sav
 *.tmb
 main.npdm
+
+build/

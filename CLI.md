@@ -78,7 +78,7 @@ Counter repair only corrects unmet counters on already-unlocked achievements.
 It leaves incomplete achievements, completion flags, satisfied counters and event
 records unchanged. Bulk repair processes the full save, independent of GUI filters.
 
-Run commands using `dotnet run --project cli/Cli.csproj -- <command>`, or use
+Run commands using `go run ./cmd/xbde-cli <command>`, or use
 the standalone `XbdeEditor.Cli` executable from a platform download.
 
 ```sh

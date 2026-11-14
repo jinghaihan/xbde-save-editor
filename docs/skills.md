@@ -1,6 +1,5 @@
 # Skill tree validation
 
-![Skills panel with Chinese interface](skills-zh.png)
 
 Characters → Skills displays all five branches as cards. The learned count and
 remaining SP are separate save fields. Choosing a count resets remaining SP;

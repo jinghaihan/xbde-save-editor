@@ -14,7 +14,7 @@ def main() -> None:
     parser.add_argument("--cli", required=True)
     args = parser.parse_args()
     executable = Path(args.cli).resolve()
-    prefix = ["dotnet", str(executable)] if executable.suffix == ".dll" else [str(executable)]
+    prefix = [str(executable)]
 
     def run(*arguments: str, success: bool = True) -> str:
         result = subprocess.run([*prefix, *map(str, arguments)], text=True, capture_output=True)

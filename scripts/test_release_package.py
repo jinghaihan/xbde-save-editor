@@ -26,8 +26,9 @@ def main() -> None:
             with (app / "Contents/Info.plist").open("rb") as source:
                 info = plistlib.load(source)
             assert info["CFBundleShortVersionString"] == version
-            assert (app / "Contents/MacOS" / info["CFBundleExecutable"]).is_file()
-            if (root / "gui/Assets/app-icon.png").is_file():
+            gui = app / "Contents/MacOS" / info["CFBundleExecutable"]
+            assert gui.is_file()
+            if (root / "assets/app-icon.png").is_file():
                 assert info["CFBundleIconFile"] == "AppIcon.icns"
                 assert (app / "Contents/Resources/AppIcon.icns").stat().st_size > 0
             subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
@@ -43,12 +44,31 @@ def main() -> None:
             gui = target / ("XBDE Save Editor.exe" if suffix else "XbdeEditor.Gui")
             assert gui.is_file()
             cli = target / f"XbdeEditor.Cli{suffix}"
-        for config in target.rglob("*.runtimeconfig.json"):
-            properties = json.loads(config.read_text(encoding="utf-8"))["runtimeOptions"]["configProperties"]
-            if properties.get("System.Runtime.InteropServices.BuiltInComInterop.IsSupported", True):
-                raise ValueError(f"Shared trimmed runtime requires COM interop to be disabled: {config.name}")
+        if list(target.rglob("*.dll")) or list(target.rglob("*.runtimeconfig.json")):
+            raise ValueError("The package contains obsolete runtime files")
+        assert (target / "licenses/MyGo.txt").is_file()
+        result = subprocess.run([str(cli), "--version"], capture_output=True, text=True, check=True)
+        assert result.stdout.strip() == version
         assert not list(target.rglob("*.pdb"))
         subprocess.run([sys.executable, str(root / "scripts/test_cli.py"), "--cli", str(cli)], check=True)
+        with tempfile.TemporaryFile() as log:
+            process = subprocess.Popen([str(gui)], stdout=log, stderr=log)
+            try:
+                try:
+                    code = process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    pass
+                else:
+                    log.seek(0)
+                    raise ValueError(f"GUI exited early ({code}): {log.read().decode(errors='replace')[-2000:]}")
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=10)
     print("Release package tests passed.")
 
 

@@ -2,7 +2,9 @@
 
 Edit Xenoblade Chronicles: Definitive Edition saves, including Future Connected.
 
-![Main editor](docs/main.png)
+![Characters in light mode](docs/characters-light.png)
+
+![Gems in dark mode](docs/gems-dark.png)
 
 ## Features
 
@@ -19,20 +21,21 @@ Edit Xenoblade Chronicles: Definitive Edition saves, including Future Connected.
 - **Collectopaedia:** Register an item, complete a page or fill every missing entry in the current campaign without gathering each collectable. Newly completed categories/pages grant their original equipment and gem rewards; repeating an operation grants nothing again. Related main-story achievement records are synchronized without changing character EXP or levels. Existing collectables remain untouched. Any inventory capacity or serial failure rejects the entire batch. Supports 300 main-story entries and 28 Future Connected entries, with matching CLI commands.
 - **CLI:** Inspect saves as JSON, copy them or edit resources without changing unknown data.
 
-English is the default language. The interface also supports Simplified Chinese,
+The interface follows your system language and appearance, with a red accent.
+It supports English, Simplified Chinese,
 Traditional Chinese, Japanese, Korean, German, French, Spanish and Italian.
 Help → About shows the version and repository link.
-Art, skill, equipment, gem, region and achievement names currently use the verified English catalogs; other game-language names
-are not yet available.
+Official game names are available in all nine interface languages. A few ambiguous
+French/Spanish skill-branch labels retain their verified English names.
 
 ## Get started
 
-With the .NET 10 SDK installed:
+With Go installed:
 
 ```sh
-dotnet run --project gui/XbdeEditor.Gui.csproj -c Release
-dotnet run --project cli/Cli.csproj -- inspect /path/to/bfsgame00.sav
-dotnet run --project cli/Cli.csproj -- copy /path/to/bfsgame00.sav /path/to/copy.sav
+go run ./cmd/xbde-editor
+go run ./cmd/xbde-cli inspect /path/to/bfsgame00.sav
+go run ./cmd/xbde-cli copy /path/to/bfsgame00.sav /path/to/copy.sav
 ```
 
 Money and Noponstones edits are limited to the native cap of 999,999,999.
@@ -42,8 +45,8 @@ AP edits are restricted to 0–99,999,999, Affinity Coins to 0–999, and Expert
 reserve EXP to 0–199,999,998. Existing higher amounts are preserved unless edited.
 Level editing respects each character's campaign-specific minimum and the level
 99 cap. Changing level resets current EXP; entered EXP advances through the
-game's level costs. Apply Changes commits the linked fields, and File → Save
-writes the save. Direct level edits leave reserve EXP untouched. Changing reserve
+game's level costs. Field edits update the open document when you leave the
+field; File → Save or Save As writes it to disk. Direct level edits leave reserve EXP untouched. Changing reserve
 EXP alone does not immediately change level; spend it in-game in Expert Mode.
 Campaign identification currently uses joined characters. When only characters
 shared by both campaigns are present, the campaign is shown as unconfirmed and
@@ -54,20 +57,17 @@ See the [CLI reference](CLI.md) and [development plan](docs/roadmap.md).
 ## Development
 
 ```sh
-dotnet build XbdeEditor.slnx -c Release
-dotnet run --project test/Core.Test.csproj -c Release --no-build
-dotnet run --project test/Gui.Smoke.csproj -c Release --no-build
-python3 scripts/test_cli.py --cli cli/bin/Release/net10.0/XbdeEditor.Cli.dll
+go test ./...
+go build -o build/xbde-cli ./cmd/xbde-cli
+python3 scripts/test_cli.py --cli build/xbde-cli
 ```
 
-Releases use `python3 scripts/release.py`. The script tests the current branch,
-creates the version commit and pushes its tag. GitHub Actions packages the
-desktop app and CLI with a shared runtime and generates release notes.
-There is no published release yet.
+Releases use `python3 scripts/release.py`. There is no published release yet.
 
 ## Credits
 
 - [damysteryman/XCDESave](https://gitlab.com/damysteryman/XCDESave): documented save-format fields used as references. This project implements its parser independently and does not include the upstream library.
+- [MyGo](https://github.com/egoist/mygo): desktop interface.
 - [Xenoblade DE data tables](https://xenoblade.github.io/xb1de/bdat/index.html): game-data references.
 
 ## License

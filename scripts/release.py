@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -84,10 +85,11 @@ def check_build(head: str) -> None:
 
 
 def run_host_tests() -> None:
-    command("dotnet", "build", "XbdeEditor.slnx", "-c", "Release", "--nologo")
-    command("dotnet", "run", "--project", "test/Core.Test.csproj", "-c", "Release", "--no-build")
-    command("dotnet", "run", "--project", "test/Gui.Smoke.csproj", "-c", "Release", "--no-build")
-    command(sys.executable, "scripts/test_cli.py", "--cli", "cli/bin/Release/net10.0/XbdeEditor.Cli.dll")
+    command("go", "test", "./...")
+    with tempfile.TemporaryDirectory(prefix="xbde-release-check-") as directory:
+        executable = str(Path(directory) / ("xbde-cli.exe" if sys.platform == "win32" else "xbde-cli"))
+        command("go", "build", "-o", executable, "./cmd/xbde-cli")
+        command(sys.executable, "scripts/test_cli.py", "--cli", executable)
 
 
 def push_tag(tag: str) -> None:

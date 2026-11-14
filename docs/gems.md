@@ -12,7 +12,6 @@ matching the stack and equipment inventory layouts. Creation does not require
 a selected owned gem and never opens a dialog. Choosing an effect or rank only
 updates the creation controls; Add explicitly creates the new record.
 
-![Gem editor](gems-zh.png)
 
 The interface supports nine languages; game effect names currently use English.
 Cylinders are excluded from this panel, and malformed or unknown records remain

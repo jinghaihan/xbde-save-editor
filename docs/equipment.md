@@ -4,7 +4,6 @@ Characters → Equipment shows one weapon and five armor pieces in a shared
 scroll area. Equipment names and gem names currently use English game catalogs;
 interface labels support all nine languages.
 
-![Equipment and gem sockets](equipment-zh.png)
 
 ## Inventory references
 

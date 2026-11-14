@@ -66,10 +66,10 @@ are described in the extracted [game tutorial table](https://xenobladedata.githu
 rows 2 and 8. Do not add duplicate currency/reward panels or quest-blind recruitment.
 Crystals/cylinders and story-weapon switching are not completion requirements; implement them only if they solve a concrete progression or grinding problem safely.
 
-## Deferred game-data localization
+## Game-data localization
 
-Localized item, equipment, Art, Skill and achievement catalogs are skipped until genuine game text is available.
-Keep the existing UI languages. Do not synthesize official translations, spend time reconstructing missing language packs or block verified features on missing text.
+Official names are available for nine languages. Only ambiguous French/Spanish
+skill-branch label translations retain English; see [display-name mapping](localized-names.md).
 
 ## Verification
 
@@ -77,7 +77,7 @@ Synthetic saves are generated in tests. Real game saves and executable files
 are never committed. Run the local round-trip checks with:
 
 ```sh
-dotnet run --project test/Core.Test.csproj -- --save-directory /path/to/saves
+XBDE_SAVE_DIRECTORY=/path/to/saves go test ./...
 ```
 
 Round-trip and byte-diff tests do not replace loading an edited copy in-game.
@@ -93,3 +93,5 @@ See [Achievement validation](achievements.md) for condition types, completion fl
 See [Affinity validation](affinity.md) for canonical pairs, point limits and directed skill-link unlocks.
 See [Region affinity validation](region-affinity.md) for star thresholds, area IDs and isolated point writes.
 See [Colony 6 validation](colony6.md) for native upgrade rows, linked flags and reconstruction write boundaries.
+
+Official names for nine languages are now available; see [display-name mapping](localized-names.md).

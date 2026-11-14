@@ -11,7 +11,6 @@ even when the inventory or filtered list is empty; no dialog is needed.
 Selecting a definition or entering a creation value does not change the save
 until Add is clicked. Both cards share one page scroll container.
 
-![Material inventory](inventory-zh.png)
 
 The [extracted item list](https://xenoblade.github.io/xb1de/bdat/bdat_common/ITM_itemlist.html)
 provides 1,353 named stackable definitions. Empty and numeric-placeholder names

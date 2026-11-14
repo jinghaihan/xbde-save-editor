@@ -1,0 +1,66 @@
+name: platform-packages
+
+on:
+  workflow_call:
+    inputs:
+      artifact-prefix:
+        required: true
+        type: string
+      verify-tag:
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2025
+            rid: win-x64
+          - os: macos-15
+            rid: osx-arm64
+          - os: macos-15-intel
+            rid: osx-x64
+          - os: ubuntu-24.04
+            rid: linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Verify tag version
+        if: inputs.verify-tag
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($env:GITHUB_REF_NAME -ne "v$version") { throw "Tag does not match VERSION" }
+      - name: Verify platform UI and save editing
+        run: go test -race ./internal/app ./internal/save
+      - name: Build GUI and CLI
+        run: python scripts/build_go.py ${{ matrix.rid }}
+      - name: Package platform download
+        run: python scripts/package_release.py ${{ matrix.rid }}
+      - name: Test extracted release ZIP
+        if: runner.os != 'Linux'
+        run: python scripts/test_release_package.py ${{ matrix.rid }}
+      - name: Install Linux display and Vulkan runtime
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libvulkan1 mesa-vulkan-drivers
+      - name: Test extracted release ZIP with a virtual display
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python scripts/test_release_package.py ${{ matrix.rid }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-prefix }}-${{ matrix.rid }}
+          path: dist/xbde-save-editor-v*-${{ matrix.rid }}.zip
+          compression-level: 0
+          if-no-files-found: error
