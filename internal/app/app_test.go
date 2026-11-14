@@ -278,3 +278,42 @@ func TestInvalidFocusedValuePreventsSave(t *testing.T) {
 		t.Fatal("invalid draft changed memory")
 	}
 }
+
+func TestEmptyInventoryKeepsCreationControls(t *testing.T) {
+	a := fixture(t)
+	if err := a.Save.Edit(func(s *save.Document) {
+		for _, item := range s.Inventory(13) {
+			item.Delete()
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	source, err := os.ReadFile(a.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Page = 2
+	*a.tab("itemTabs") = 3
+	tt := ui.NewTester(a.View, 1120, 780)
+	add, ok := tt.AccessByRole(ui.RoleButton, a.T("Add"))
+	if !ok || add.Disabled {
+		t.Fatal("empty inventory cannot create its first item")
+	}
+	remove, ok := tt.AccessByRole(ui.RoleButton, a.T("Delete"))
+	if !ok || !remove.Disabled {
+		t.Fatal("empty inventory must retain disabled item controls")
+	}
+	if err := tt.Click(a.T("Add")); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.Save.Inventory(13)) != 1 {
+		t.Fatalf("Add did not create one manual: %s", a.Status)
+	}
+	if a.confirm {
+		t.Fatal("adding an item opened a redundant confirmation dialog")
+	}
+	original, err := os.ReadFile(a.Path)
+	if err != nil || !bytes.Equal(source, original) {
+		t.Fatal("creating an item wrote to the source file")
+	}
+}

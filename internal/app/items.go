@@ -63,7 +63,6 @@ func (a *App) inventoryPage(c *ui.Context, kind int) {
 			if kind == 12 {
 				return
 			}
-			a.heading(c, "AddItem", "")
 			opts := []option{}
 			for _, def := range save.InventoryDefinitions {
 				if def.Kind == kind {
@@ -123,7 +122,6 @@ func (a *App) equipmentInventoryPage(c *ui.Context, slot int) {
 			}
 		})
 		a.action(c, "Delete", canDelete, func(s *save.Document) { s.OwnedEquipment(slot, index).Delete() })
-		a.heading(c, "AddEquipment", "")
 		opts := []option{}
 		chars := []option{}
 		if a.Save != nil {

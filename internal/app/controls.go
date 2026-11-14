@@ -235,9 +235,7 @@ func (a *App) split(c *ui.Context, key, title string, rows []row, header listHea
 		a.card(c, key+"Editor").Grow(1).MinHeight(0).Children(func() {
 			ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
 				ui.Column(c).Gap(editorAppearance.ControlGap).MinWidth(0).Children(func() {
-					if id != "" || a.Save == nil {
-						detail(id)
-					}
+					detail(id)
 				})
 			})
 		})
