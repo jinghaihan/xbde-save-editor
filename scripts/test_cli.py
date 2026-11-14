@@ -17,7 +17,7 @@ def main() -> None:
     prefix = [str(executable)]
 
     def run(*arguments: str, success: bool = True) -> str:
-        result = subprocess.run([*prefix, *map(str, arguments)], text=True, capture_output=True)
+        result = subprocess.run([*prefix, *map(str, arguments)], text=True, encoding="utf-8", capture_output=True)
         assert (result.returncode == 0) == success, (arguments, result.stdout, result.stderr)
         return result.stdout
 
