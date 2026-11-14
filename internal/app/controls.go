@@ -1,0 +1,342 @@
+package app
+
+import (
+	"fmt"
+	"github.com/egoist/mygo/ui"
+	"github.com/jinghaihan/xbde-save-editor/internal/save"
+	"strconv"
+	"strings"
+)
+
+func (a *App) tab(key string) *int {
+	if v := a.tabs[key]; v != nil {
+		return v
+	}
+	v := 0
+	a.tabs[key] = &v
+	return &v
+}
+func (a *App) table(key string) *tableState {
+	if v := a.tables[key]; v != nil {
+		return v
+	}
+	v := &tableState{}
+	a.tables[key] = v
+	return v
+}
+func (a *App) number(key string, current float64) *float64 {
+	v := a.numbers[key]
+	if v == nil {
+		v = new(float64)
+		a.numbers[key] = v
+	}
+	if !a.dirty(key) {
+		*v = current
+	}
+	return v
+}
+func (a *App) text(key, current string) *string {
+	v := a.texts[key]
+	if v == nil {
+		v = new(string)
+		a.texts[key] = v
+	}
+	if !a.dirty(key) {
+		*v = current
+	}
+	return v
+}
+func (a *App) choice(key, current string) *string {
+	v := a.choices[key]
+	if v == nil {
+		v = new(string)
+		a.choices[key] = v
+	}
+	if !a.dirty(key) {
+		*v = current
+	}
+	return v
+}
+func (a *App) flag(key string, current bool) *bool {
+	v := a.flags[key]
+	if v == nil {
+		v = new(bool)
+		a.flags[key] = v
+	}
+	if !a.dirty(key) {
+		*v = current
+	}
+	return v
+}
+func (a *App) card(c *ui.Context, title string) ui.Element {
+	return ui.Column(c).Padding(editorAppearance.CardPadding).Gap(editorAppearance.SectionGap).Radius(editorAppearance.CardRadius).Background(cardColor(c)).Border(1, c.Theme().Border).MinWidth(0).Role(ui.RoleGroup).Label(a.T(title))
+}
+func (a *App) section(c *ui.Context, title string, fn func()) {
+	a.sectionWithSummary(c, title, "", fn)
+}
+func (a *App) heading(c *ui.Context, title, summary string) {
+	ui.Row(c).Gap(editorAppearance.ControlGap).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, a.T(title)).Bold().Grow(1)
+		if summary != "" {
+			ui.Text(c, summary)
+		}
+	})
+}
+func (a *App) sectionWithSummary(c *ui.Context, title, summary string, fn func()) {
+	a.card(c, title).Children(func() {
+		a.heading(c, title, summary)
+		ui.Column(c).Gap(editorAppearance.ControlGap).Children(fn)
+	})
+}
+func (a *App) columns(c *ui.Context, fn ...func()) {
+	a.columnsWithGaps(c, editorAppearance.SectionGap, editorAppearance.ControlGap, fn...)
+}
+func (a *App) sectionColumns(c *ui.Context, fn ...func()) {
+	a.columnsWithGaps(c, editorAppearance.SectionGap, editorAppearance.SectionGap, fn...)
+}
+func (a *App) controlColumns(c *ui.Context, fn ...func()) {
+	a.columnsWithGaps(c, editorAppearance.ControlGap, editorAppearance.ControlGap, fn...)
+}
+func (a *App) columnsWithGaps(c *ui.Context, horizontalGap, verticalGap float32, fn ...func()) {
+	ui.Row(c).Gap(horizontalGap).AlignItems(ui.Start).Children(func() {
+		for _, f := range fn {
+			ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(verticalGap).Children(f)
+		}
+	})
+}
+func (a *App) field(c *ui.Context, label string, fn func()) {
+	ui.Field(c.Key(label), a.T(label), fn).Gap(editorAppearance.ControlGap).MinWidth(0)
+}
+func (a *App) numberField(c *ui.Context, label, key string, value float64, lo, hi float64, update func(int)) *float64 {
+	var v *float64
+	a.field(c, label, func() { v = a.numberControl(c, label, key, value, lo, hi, update) })
+	return v
+}
+func (a *App) numberControl(c *ui.Context, label, key string, value, lo, hi float64, update func(int)) *float64 {
+	v := a.number(key, value)
+	if hi > 99999 {
+		text := a.text(key, strconv.Itoa(int(value)))
+		ui.Column(c.Key(key)).Role(ui.RoleGroup).Label(a.T(label)).Children(func() {
+			input := ui.TextInput(c, text).Label(a.T(label))
+			a.trackInput(key, input)
+			if input.Changed() {
+				n, e := strconv.Atoi(*text)
+				if e != nil || float64(n) < lo || float64(n) > hi {
+					a.invalid[key] = a.T("InvalidValue")
+				} else {
+					delete(a.invalid, key)
+					*v = float64(n)
+					update(n)
+				}
+			}
+		})
+		return v
+	}
+	input := ui.NumberInput(c.Key(key), v, lo, hi, 1).Role(ui.RoleGroup).Label(a.T(label))
+	a.trackInput(key, input)
+	if input.Changed() {
+		update(int(*v))
+	}
+	return v
+}
+func (a *App) trackInput(key string, input ui.Element) {
+	if input.FocusWithin() && !input.Submitted() {
+		a.focusedInput = key
+	}
+}
+
+func (a *App) button(c *ui.Context, key string, fn func()) {
+	if ui.Button(c.Key(key), a.T(key)).Clicked() {
+		fn()
+	}
+}
+func (a *App) numberEdit(c *ui.Context, label, key string, value, lo, hi int, fn func(*save.Document, int)) {
+	a.numberField(c, label, key, float64(value), float64(lo), float64(hi), func(n int) { a.stage(key, func(s *save.Document) { fn(s, n) }) })
+}
+
+type listHeader struct {
+	summary  string
+	controls func()
+}
+
+func (a *App) list(c *ui.Context, key, title string, rows []row, header listHeader, footer func()) string {
+	s := a.table(key)
+	selectedID := ""
+	if s.Selected >= 0 && s.Selected < len(s.Rows) {
+		selectedID = s.Rows[s.Selected].ID
+	}
+	ui.Column(c.Key(key)).Fill().Gap(editorAppearance.ControlGap).Children(func() {
+		if title != "" {
+			a.heading(c, title, header.summary)
+		}
+		if header.controls != nil {
+			header.controls()
+		}
+		ui.SearchField(c, &s.Query).Placeholder(a.T("Search")).Label(a.T("Search"))
+		filtered := []row{}
+		for _, r := range rows {
+			if strings.Contains(strings.ToLower(r.Name+" "+r.Value+" "+r.ID), strings.ToLower(s.Query)) {
+				filtered = append(filtered, r)
+			}
+		}
+		if selectedID != "" {
+			s.Selected = 0
+			for i, r := range filtered {
+				if r.ID == selectedID {
+					s.Selected = i
+					break
+				}
+			}
+		}
+		s.Rows = filtered
+		s.Selected = clampIndex(s.Selected, len(filtered))
+		s.List.Selected = &s.Selected
+		if s.Selected >= 0 && (selectedID == "" || filtered[s.Selected].ID != selectedID) {
+			s.List.Choose(s.Selected)
+		}
+		s.List.Key = func(i int) any { return filtered[i].ID }
+		old := s.Selected
+		if themedList(c, &s.List, len(filtered), func(i int) {
+			r := filtered[i]
+			text := r.Name
+			if r.Value != "" {
+				text += " · " + r.Value
+			}
+			ui.Text(c, text).Padding(7, 12).SingleLine()
+		}).Changed() {
+			if e := a.ApplyPending(strings.Split(key, "/")[0]); e != nil {
+				s.Selected = old
+			}
+		}
+		if footer != nil {
+			footer()
+		}
+	})
+	if s.Selected < 0 || s.Selected >= len(s.Rows) {
+		return ""
+	}
+	return s.Rows[s.Selected].ID
+}
+func clampIndex(index, length int) int {
+	if length == 0 {
+		return -1
+	}
+	return max(0, min(index, length-1))
+}
+func (a *App) split(c *ui.Context, key, title string, rows []row, header listHeader, footer func(), detail func(string)) {
+	ui.Row(c).Grow(1).Basis(0).MinHeight(0).Gap(editorAppearance.SectionGap).AlignItems(ui.Stretch).Children(func() {
+		id := ""
+		width := float32(320)
+		windowWidth, _ := c.Size()
+		if windowWidth < 1000 {
+			width = 280
+		}
+		a.card(c, title).Width(width).MinHeight(0).Children(func() { id = a.list(c, key, title, rows, header, footer) })
+		a.card(c, key+"Editor").Grow(1).MinHeight(0).Children(func() {
+			ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
+				ui.Column(c).Gap(editorAppearance.ControlGap).MinWidth(0).Children(func() {
+					if id != "" || a.Save == nil {
+						detail(id)
+					}
+				})
+			})
+		})
+	})
+}
+func (a *App) staticField(c *ui.Context, label string, value any) {
+	a.field(c, label, func() { ui.Text(c, fmt.Sprint(value)) })
+}
+func (a *App) tabsView(c *ui.Context, key string, labels ...string) int {
+	tab := a.tab(key)
+	names := make([]string, len(labels))
+	for i, l := range labels {
+		names[i] = a.T(l)
+	}
+	ui.ScrollHorizontal(c).Children(func() {
+		old := *tab
+		if ui.Tabs(c, tab, names...).Changed() {
+			if a.Save != nil && a.ApplyPending("") != nil {
+				*tab = old
+			}
+		}
+	})
+	return *tab
+}
+func draft[T any](a *App, key string, init func() T) *T {
+	if v, ok := a.drafts[key]; ok {
+		return v.(*T)
+	}
+	value := init()
+	a.drafts[key] = &value
+	return &value
+}
+func (a *App) pruneDrafts() {
+	for key := range a.drafts {
+		if !a.dirty(key) {
+			delete(a.drafts, key)
+		}
+	}
+}
+
+type option struct{ ID, Name string }
+type optionDisplay struct{ ID, Language, Text string }
+
+func (a *App) combo(c *ui.Context, label, key string, selected *string, options []option) bool {
+	changed := false
+	a.field(c, label, func() { changed = a.comboControl(c, label, key, selected, options) })
+	return changed
+}
+func (a *App) comboControl(c *ui.Context, label, key string, selected *string, options []option) bool {
+	changed := false
+	labels := make([]string, len(options))
+	counts := map[string]int{}
+	for _, o := range options {
+		counts[o.Name]++
+	}
+	current := *selected
+	for i, o := range options {
+		labels[i] = o.Name
+		if counts[o.Name] > 1 {
+			labels[i] += " [" + o.ID + "]"
+		}
+		if o.ID == *selected {
+			current = labels[i]
+		}
+	}
+	box := ui.Column(c.Key(key)).MinWidth(0)
+	state := ui.Local(box, "option", func() optionDisplay { return optionDisplay{*selected, a.Language, current} })
+	if state.ID != *selected || state.Language != a.Language {
+		state.ID = *selected
+		state.Language = a.Language
+		state.Text = current
+	}
+	box.Children(func() {
+		if ui.Combobox(c, &state.Text, labels).Label(a.T(label)).Changed() {
+			for i, text := range labels {
+				if state.Text == text {
+					*selected = options[i].ID
+					state.ID = *selected
+					changed = true
+					break
+				}
+			}
+		}
+	})
+	return changed
+}
+func (a *App) formNumber(c *ui.Context, label, key string, value *float64, lo, hi float64) bool {
+	changed := false
+	a.field(c, label, func() {
+		input := ui.NumberInput(c.Key(key), value, lo, hi, 1).Label(a.T(label))
+		a.trackInput(key, input)
+		changed = input.Changed()
+	})
+	return changed
+}
+func replaceFormat(text string, values ...string) string {
+	for i, v := range values {
+		text = strings.ReplaceAll(text, fmt.Sprintf("{%d}", i), v)
+		text = strings.ReplaceAll(text, fmt.Sprintf("{%d:N0}", i), v)
+	}
+	return text
+}
