@@ -160,10 +160,9 @@ func (c Character) LinkedCost() (int, bool) {
 	}
 	return cost, true
 }
-func (l SkillLink) SetSkill(id int) {
+func (l SkillLink) validateSkill(id int) {
 	require(l.CanEdit(), "Only unlocked skill links can be edited.")
 	if id == 0 {
-		l.d.w8(l.offset(), 0)
 		return
 	}
 	s, ok := SkillDefinitions[id]
@@ -178,18 +177,19 @@ func (l SkillLink) SetSkill(id int) {
 	require(valid, "Remove unrecognized skill links first.")
 	prev := SkillDefinitions[l.SkillID()].AffinityCoins
 	require(used-prev+s.AffinityCoins <= max(c.AffinityCoins(), used), "Not enough Affinity Coins.")
-	l.d.w8(l.offset(), id)
 }
+func (l SkillLink) SetSkill(id int) { l.validateSkill(id); l.d.w8(l.offset(), id) }
 func (l SkillLink) CanSet(id int) (ok bool) {
 	defer func() {
-		if recover() != nil {
-			ok = false
+		if p := recover(); p != nil {
+			if _, expected := p.(editError); expected {
+				ok = false
+			} else {
+				panic(p)
+			}
 		}
 	}()
-	copy := &Document{l.d.Bytes()}
-	candidate := l
-	candidate.d = copy
-	candidate.SetSkill(id)
+	l.validateSkill(id)
 	return true
 }
 func (l SkillLink) Choices() []SkillDefinition {

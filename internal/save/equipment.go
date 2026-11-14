@@ -344,3 +344,5 @@ func (d *Document) AddGem(effect, rank, strength int) Gem {
 }
 
 func (g Gem) IsCylinder() bool { return g.d.u8(g.offset()+0x19) != 0 }
+
+func (g Gem) EquippedSlots() []int { return g.d.gemSlots(g.Index) }
