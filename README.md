@@ -38,6 +38,10 @@ go run ./cmd/xbde-cli inspect /path/to/bfsgame00.sav
 go run ./cmd/xbde-cli copy /path/to/bfsgame00.sav /path/to/copy.sav
 ```
 
+Add and Delete are below each inventory list. Add opens a selection window;
+Fill Missing Equipment selects a character and adds missing gear in the current
+category without equipping it. The right pane edits the selected entry.
+
 Money and Noponstones edits are limited to the native cap of 999,999,999.
 Existing higher amounts are preserved on opening and unrelated edits; they are
 not silently normalized.
