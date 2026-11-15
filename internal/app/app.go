@@ -47,6 +47,7 @@ type App struct {
 	pending                map[string]edit
 	pendingOrder           []string
 	focusedInput           string
+	form                   *formLayout
 	revision               int
 	dark                   bool
 	preferencesPath        string

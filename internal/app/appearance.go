@@ -1,6 +1,10 @@
 package app
 
-import "github.com/egoist/mygo/ui"
+import (
+	"math"
+
+	"github.com/egoist/mygo/ui"
+)
 
 // Use FETH's container spacing and standard MyGo widget sizes.
 var editorAppearance = struct {
@@ -66,9 +70,33 @@ func themedList(c *ui.Context, state *ui.ListState, count int, row func(int)) ui
 	ui.Themed(c, &t).Grow(1).Basis(0).MinHeight(0).Children(func() { list = ui.List(c, state, count, row).Grow(1).MinHeight(0).Background(cardColor(c)).Gap(2) })
 	return list
 }
-func editorForm(c *ui.Context, fields func()) ui.Element {
-	return ui.Form(c, fields).Gap(editorAppearance.ControlGap)
+
+type formLayout struct {
+	fields []ui.Element
+	width  float32
 }
-func editorField(c *ui.Context, label string, control func()) ui.Element {
-	return ui.Field(c, label, control).Gap(editorAppearance.ControlGap)
+
+func (a *App) editorForm(c *ui.Context, fields func()) ui.Element {
+	previous := a.form
+	form := &formLayout{}
+	a.form = form
+	defer func() { a.form = previous }()
+	column := ui.Column(c).Gap(editorAppearance.ControlGap).MinWidth(0).Children(fields)
+	for _, field := range form.fields {
+		field.ColumnTracks(ui.Fixed(float32(math.Ceil(float64(form.width)))), ui.Fr(1))
+	}
+	return column
+}
+
+func (a *App) editorField(c *ui.Context, label string, control func()) ui.Element {
+	if a.form == nil {
+		return ui.Field(c, label, control).Gap(editorAppearance.ControlGap).MinWidth(0)
+	}
+	form := a.form
+	field := ui.Field(c, label, control).Grid().AlignItems(ui.Center).
+		Gap(editorAppearance.ControlGap).MinWidth(0)
+	width, _ := c.MeasureText(0, ui.Span{Text: label, Font: c.Theme().Font, Size: c.Theme().FontSize, Weight: 500})
+	form.width = max(form.width, width)
+	form.fields = append(form.fields, field)
+	return field
 }

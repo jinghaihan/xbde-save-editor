@@ -73,7 +73,7 @@ func (a *App) mainPage(c *ui.Context) {
 					money = a.Save.Money()
 					nopon = a.Save.Noponstones()
 				}
-				editorForm(c, func() {
+				a.editorForm(c, func() {
 					a.numberEdit(c, "Money", "main/money", money, 0, max(money, save.MaximumCurrency), func(s *save.Document, v int) { s.SetResources(&v, nil) })
 					a.numberEdit(c, "Noponstones", "main/nopon", nopon, 0, max(nopon, save.MaximumCurrency), func(s *save.Document, v int) { s.SetResources(nil, &v) })
 				})
@@ -83,7 +83,7 @@ func (a *App) mainPage(c *ui.Context) {
 				if a.Save != nil && a.Save.Colony6() != nil {
 					state = a.Save.Colony6()
 				}
-				editorForm(c, func() {
+				a.editorForm(c, func() {
 					for _, f := range []struct {
 						k string
 						v int
@@ -104,7 +104,7 @@ func (a *App) mainPage(c *ui.Context) {
 					campaign = a.T(a.Save.Campaign())
 					count = len(a.Save.Characters())
 				}
-				editorForm(c, func() {
+				a.editorForm(c, func() {
 					a.staticField(c, "FileName", file)
 					a.staticField(c, "Campaign", campaign)
 					a.staticField(c, "Characters", count)
@@ -191,7 +191,7 @@ func (a *App) characterGeneral(c *ui.Context, id int) {
 	key := "character/" + rid(id)
 	a.sectionColumns(c, func() {
 		ui.Text(c, a.T("General")).Bold()
-		editorForm(c, func() {
+		a.editorForm(c, func() {
 			a.disabled(c, !x.CanEditProgression(), func() {
 				a.intChoice(c, "Level", key+"/level", x.Level(), numberedOptions(x.MinimumLevel(), 99), func(v int) { a.stage(key+"/level", func(s *save.Document) { s.Character(id).SetProgression(&v, nil) }) })
 				a.numberEdit(c, "Experience", key+"/exp", x.Experience(), 0, max(99999999, x.Experience()), func(s *save.Document, v int) { s.Character(id).SetProgression(nil, &v) })
@@ -205,7 +205,7 @@ func (a *App) characterGeneral(c *ui.Context, id int) {
 		a.action(c, "MaxAP", true, func(s *save.Document) { v := 99999999; s.Character(id).SetResources(&v, nil, nil) })
 	}, func() {
 		ui.Text(c, a.T("ExpertMode")).Bold()
-		editorForm(c, func() {
+		a.editorForm(c, func() {
 			a.staticField(c, "HighestLevel", x.ExpertLevel())
 			a.staticField(c, "RecordedExperience", x.ExpertExperience())
 			a.numberEdit(c, "ReserveExperience", key+"/reserve", x.ReserveExperience(), 0, max(199999998, x.ReserveExperience()), func(s *save.Document, v int) { s.Character(id).SetResources(nil, nil, &v) })
@@ -277,7 +277,7 @@ func (a *App) characterSkills(c *ui.Context, id int) {
 					}
 					ui.Text(c, mark+a.name("skill", s.Id, s.Name))
 				}
-				editorForm(c, func() {
+				a.editorForm(c, func() {
 					a.disabled(c, !t.CanEdit(), func() {
 						a.numberEdit(c, "LearnedSkills", key+"/count", t.LearnedCount(), t.MinimumCount(), 5, func(s *save.Document, v int) { s.Character(id).SkillTree(index).SetLearnedCount(v) })
 					})
@@ -402,14 +402,14 @@ func (a *App) emptyCharacter(c *ui.Context, tab int) {
 	case 0:
 		a.sectionColumns(c, func() {
 			ui.Text(c, a.T("General")).Bold()
-			editorForm(c, func() {
+			a.editorForm(c, func() {
 				for _, key := range []string{"Level", "Experience", "AP", "AffinityCoins"} {
 					emptyNumber(key)
 				}
 			})
 		}, func() {
 			ui.Text(c, a.T("ExpertMode")).Bold()
-			editorForm(c, func() {
+			a.editorForm(c, func() {
 				a.staticField(c, "HighestLevel", "")
 				a.staticField(c, "RecordedExperience", "")
 				emptyNumber("ReserveExperience")

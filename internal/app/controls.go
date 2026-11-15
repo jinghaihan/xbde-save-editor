@@ -105,7 +105,7 @@ func (a *App) columnsWithGaps(c *ui.Context, horizontalGap, verticalGap float32,
 	})
 }
 func (a *App) field(c *ui.Context, label string, fn func()) {
-	ui.Field(c.Key(label), a.T(label), fn).Gap(editorAppearance.ControlGap).MinWidth(0)
+	a.editorField(c.Key(label), a.T(label), fn)
 }
 func (a *App) numberField(c *ui.Context, label, key string, value float64, lo, hi float64, update func(int)) *float64 {
 	var v *float64
@@ -235,7 +235,7 @@ func (a *App) split(c *ui.Context, key, title string, rows []row, header listHea
 		a.card(c, key+"Editor").Grow(1).MinHeight(0).Children(func() {
 			ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
 				ui.Column(c).Gap(editorAppearance.ControlGap).MinWidth(0).Children(func() {
-					editorForm(c, func() { detail(id) })
+					a.editorForm(c, func() { detail(id) })
 				})
 			})
 		})
@@ -246,7 +246,9 @@ func (a *App) staticField(c *ui.Context, label string, value any) {
 	if text == "" {
 		text = "—"
 	}
-	a.field(c, label, func() { ui.Text(c, text).PaddingY(c.Theme().Space(1.5)) })
+	a.field(c, label, func() {
+		ui.Text(c, text).Padding(c.Theme().Space(1.5)+1, c.Theme().Space(2.5)+1)
+	})
 }
 func (a *App) tabsView(c *ui.Context, key string, labels ...string) int {
 	tab := a.tab(key)
@@ -254,7 +256,7 @@ func (a *App) tabsView(c *ui.Context, key string, labels ...string) int {
 	for i, l := range labels {
 		names[i] = a.T(l)
 	}
-	ui.ScrollHorizontal(c).Children(func() {
+	ui.ScrollHorizontal(c).MarginX(-c.Theme().Space(1.5)).Children(func() {
 		old := *tab
 		if ui.Tabs(c, tab, names...).Changed() {
 			if a.Save != nil && a.ApplyPending("") != nil {

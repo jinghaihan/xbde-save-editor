@@ -317,3 +317,63 @@ func TestEmptyInventoryKeepsCreationControls(t *testing.T) {
 		t.Fatal("creating an item wrote to the source file")
 	}
 }
+
+// Check the visible captions, rather than just control bounds: right-aligned
+// captions can have aligned controls while still looking ragged.
+func TestDetailCaptionAlignment(t *testing.T) {
+	for _, dark := range []bool{false, true} {
+		for _, width := range []int{1120, 860} {
+			a := fixture(t)
+			a.dark = dark
+			if len(a.Save.EquipmentInventory(0)) == 0 {
+				definitions := a.Save.CreatableEquipment(0)
+				if len(definitions) == 0 {
+					t.Fatal("no weapon available for layout check")
+				}
+				if err := a.Save.Edit(func(s *save.Document) { s.AddEquipment(definitions[0].Id) }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			tt := ui.NewTesterWith(a.View, width, 780, ui.TesterOptions{Dark: dark})
+			caption := func(key string) ui.AccessInfo {
+				t.Helper()
+				node, ok := tt.AccessByRole(ui.RoleText, a.T(key))
+				if !ok {
+					t.Fatalf("missing caption %s", key)
+				}
+				return node
+			}
+			aligned := func(keys ...string) {
+				t.Helper()
+				first := caption(keys[0])
+				for _, key := range keys[1:] {
+					if node := caption(key); math.Abs(float64(first.Bounds.X-node.Bounds.X)) > .5 {
+						t.Errorf("%s and %s left edges differ: %v / %v", keys[0], key, first.Bounds, node.Bounds)
+					}
+				}
+			}
+			a.Page = 1
+			tt.Frame()
+			aligned("General", "Level", "Experience", "AP", "AffinityCoins")
+			aligned("ExpertMode", "HighestLevel", "RecordedExperience", "ReserveExperience")
+			for _, pair := range [][2]string{{"Level", "HighestLevel"}, {"Experience", "RecordedExperience"}, {"AP", "ReserveExperience"}} {
+				first, second := caption(pair[0]), caption(pair[1])
+				if math.Abs(float64(first.Bounds.Y-second.Bounds.Y)) > .5 {
+					t.Errorf("%s and %s baselines differ: %v / %v", pair[0], pair[1], first.Bounds, second.Bounds)
+				}
+			}
+			a.Page = 2
+			*a.tab("itemTabs") = 5
+			a.revision++
+			tt.Frame()
+			aligned("Equipment", "GemSocket", "EquippedBy", "FixedGem", "AddEquipment", "EquipmentTarget")
+			left := caption("Equipment").Bounds.X
+			for _, key := range []string{"Delete", "Add", "FillMissingEquipment"} {
+				button, ok := tt.AccessByRole(ui.RoleButton, a.T(key))
+				if !ok || math.Abs(float64(button.Bounds.X-left)) > .5 {
+					t.Errorf("%s does not start at the detail column: %+v", key, button.Bounds)
+				}
+			}
+		}
+	}
+}

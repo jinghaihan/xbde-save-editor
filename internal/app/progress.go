@@ -20,7 +20,7 @@ func (a *App) affinityPage(c *ui.Context) {
 						stars = r.Stars()
 					}
 					a.disabled(c, a.Save == nil || !a.Save.MainSupported(), func() {
-						editorForm(c, func() {
+						a.editorForm(c, func() {
 							key := "region/" + rid(id)
 							a.numberEdit(c, "RegionPoints", key+"/points", points, 0, max(10000, points), func(s *save.Document, v int) { s.Region(id).SetPoints(v) })
 							a.intChoice(c, "RegionStars", key+"/stars", stars, numberedOptions(1, 5), func(v int) { a.stage(key+"/stars", func(s *save.Document) { s.Region(id).SetStars(v) }) })
@@ -58,7 +58,7 @@ func (a *App) affinityPage(c *ui.Context) {
 			slots1, slots2 = p.Slots(first, second), p.Slots(second, first)
 		}
 		a.disabled(c, id == "" || a.Save == nil || !a.Save.MainSupported(), func() {
-			editorForm(c, func() {
+			a.editorForm(c, func() {
 				a.numberEdit(c, "AffinityPoints", "affinity/"+id, points, 0, max(5000, points), func(s *save.Document, v int) { s.Affinity(first, second).SetPoints(v) })
 				a.staticField(c, "AffinitySlots", fmt.Sprintf("%d / %d", slots1, slots2))
 			})
@@ -121,7 +121,7 @@ func (a *App) achievementsPage(c *ui.Context) {
 			repair = a.Save.MainSupported() && x.Unmet()
 		}
 		ui.Text(c, condition)
-		editorForm(c, func() {
+		a.editorForm(c, func() {
 			a.staticField(c, "ArtStatus", status)
 			a.staticField(c, "AchievementReward", reward)
 			a.staticField(c, "AchievementProgress", progress)
