@@ -62,7 +62,7 @@ func (a *App) scroll(c *ui.Context, fn func()) {
 	ui.Scroll(c).Grow(1).MinHeight(0).Children(func() { ui.Column(c).Gap(12).MinWidth(0).Children(fn) })
 }
 func (a *App) action(c *ui.Context, label string, enabled bool, fn edit) {
-	ui.Column(c.Key(label)).Disabled(!enabled || a.Save == nil).Children(func() { a.button(c, label, func() { a.perform(fn) }) })
+	ui.Row(c.Key(label)).Disabled(!enabled || a.Save == nil).Children(func() { a.button(c, label, func() { a.perform(fn) }) })
 }
 func (a *App) mainPage(c *ui.Context) {
 	a.scroll(c, func() {
@@ -191,26 +191,25 @@ func (a *App) characterGeneral(c *ui.Context, id int) {
 	key := "character/" + rid(id)
 	a.sectionColumns(c, func() {
 		ui.Text(c, a.T("General")).Bold()
-		a.disabled(c, !x.CanEditProgression(), func() {
-			a.intChoice(c, "Level", key+"/level", x.Level(), numberedOptions(x.MinimumLevel(), 99), func(v int) { a.stage(key+"/level", func(s *save.Document) { s.Character(id).SetProgression(&v, nil) }) })
-			a.numberEdit(c, "Experience", key+"/exp", x.Experience(), 0, max(99999999, x.Experience()), func(s *save.Document, v int) { s.Character(id).SetProgression(nil, &v) })
-		})
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "AP").Bold().Grow(1)
-			a.action(c, "MaxAP", true, func(s *save.Document) { v := 99999999; s.Character(id).SetResources(&v, nil, nil) })
-		})
-		a.numberControl(c, "AP", key+"/ap", float64(x.AP()), 0, float64(max(99999999, x.AP())), func(v int) { a.stage(key+"/ap", func(s *save.Document) { s.Character(id).SetResources(&v, nil, nil) }) })
+		editorForm(c, func() {
+			a.disabled(c, !x.CanEditProgression(), func() {
+				a.intChoice(c, "Level", key+"/level", x.Level(), numberedOptions(x.MinimumLevel(), 99), func(v int) { a.stage(key+"/level", func(s *save.Document) { s.Character(id).SetProgression(&v, nil) }) })
+				a.numberEdit(c, "Experience", key+"/exp", x.Experience(), 0, max(99999999, x.Experience()), func(s *save.Document, v int) { s.Character(id).SetProgression(nil, &v) })
+			})
+			a.numberEdit(c, "AP", key+"/ap", x.AP(), 0, max(99999999, x.AP()), func(s *save.Document, v int) { s.Character(id).SetResources(&v, nil, nil) })
 
-		a.disabled(c, a.Save.Campaign() != "MainStory", func() {
-			a.numberEdit(c, "AffinityCoins", key+"/coins", x.AffinityCoins(), 0, max(999, x.AffinityCoins()), func(s *save.Document, v int) { s.Character(id).SetResources(nil, &v, nil) })
+			a.disabled(c, a.Save.Campaign() != "MainStory", func() {
+				a.numberEdit(c, "AffinityCoins", key+"/coins", x.AffinityCoins(), 0, max(999, x.AffinityCoins()), func(s *save.Document, v int) { s.Character(id).SetResources(nil, &v, nil) })
+			})
 		})
+		a.action(c, "MaxAP", true, func(s *save.Document) { v := 99999999; s.Character(id).SetResources(&v, nil, nil) })
 	}, func() {
 		ui.Text(c, a.T("ExpertMode")).Bold()
 		editorForm(c, func() {
 			a.staticField(c, "HighestLevel", x.ExpertLevel())
 			a.staticField(c, "RecordedExperience", x.ExpertExperience())
+			a.numberEdit(c, "ReserveExperience", key+"/reserve", x.ReserveExperience(), 0, max(199999998, x.ReserveExperience()), func(s *save.Document, v int) { s.Character(id).SetResources(nil, nil, &v) })
 		})
-		a.numberEdit(c, "ReserveExperience", key+"/reserve", x.ReserveExperience(), 0, max(199999998, x.ReserveExperience()), func(s *save.Document, v int) { s.Character(id).SetResources(nil, nil, &v) })
 		a.action(c, "MaxReserveExperience", true, func(s *save.Document) { v := 199999998; s.Character(id).SetResources(nil, nil, &v) })
 	})
 }
@@ -403,14 +402,18 @@ func (a *App) emptyCharacter(c *ui.Context, tab int) {
 	case 0:
 		a.sectionColumns(c, func() {
 			ui.Text(c, a.T("General")).Bold()
-			for _, key := range []string{"Level", "Experience", "AP", "AffinityCoins"} {
-				emptyNumber(key)
-			}
+			editorForm(c, func() {
+				for _, key := range []string{"Level", "Experience", "AP", "AffinityCoins"} {
+					emptyNumber(key)
+				}
+			})
 		}, func() {
 			ui.Text(c, a.T("ExpertMode")).Bold()
-			for _, key := range []string{"HighestLevel", "RecordedExperience", "ReserveExperience"} {
-				emptyNumber(key)
-			}
+			editorForm(c, func() {
+				a.staticField(c, "HighestLevel", "")
+				a.staticField(c, "RecordedExperience", "")
+				emptyNumber("ReserveExperience")
+			})
 		})
 	case 1:
 		ui.Row(c).Gap(12).Children(func() {

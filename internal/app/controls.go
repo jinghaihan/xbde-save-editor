@@ -235,14 +235,18 @@ func (a *App) split(c *ui.Context, key, title string, rows []row, header listHea
 		a.card(c, key+"Editor").Grow(1).MinHeight(0).Children(func() {
 			ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
 				ui.Column(c).Gap(editorAppearance.ControlGap).MinWidth(0).Children(func() {
-					detail(id)
+					editorForm(c, func() { detail(id) })
 				})
 			})
 		})
 	})
 }
 func (a *App) staticField(c *ui.Context, label string, value any) {
-	a.field(c, label, func() { ui.Text(c, fmt.Sprint(value)) })
+	text := fmt.Sprint(value)
+	if text == "" {
+		text = "—"
+	}
+	a.field(c, label, func() { ui.Text(c, text).PaddingY(c.Theme().Space(1.5)) })
 }
 func (a *App) tabsView(c *ui.Context, key string, labels ...string) int {
 	tab := a.tab(key)

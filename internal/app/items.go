@@ -4,7 +4,15 @@ import (
 	"fmt"
 	"github.com/egoist/mygo/ui"
 	"github.com/jinghaihan/xbde-save-editor/internal/save"
+	"strings"
 )
+
+func (a *App) namesOrNone(names []string) string {
+	if len(names) == 0 {
+		return a.T("None")
+	}
+	return strings.Join(names, ", ")
+}
 
 func (a *App) itemsPage(c *ui.Context) {
 	t := a.tabsView(c, "itemTabs", "Gems", "Collectables", "Materials", "ArtManuals", "KeyItems", "Weapons", "Armor")
@@ -50,9 +58,7 @@ func (a *App) inventoryPage(c *ui.Context, kind int) {
 				editable = x.CanEdit()
 			}
 			a.disabled(c, !editable, func() {
-				editorForm(c, func() {
-					a.numberEdit(c, "Quantity", key+"/"+id+"/quantity", quantity, 1, 99, func(s *save.Document, v int) { s.Item(kind, index).SetQuantity(v) })
-				})
+				a.numberEdit(c, "Quantity", key+"/"+id+"/quantity", quantity, 1, 99, func(s *save.Document, v int) { s.Item(kind, index).SetQuantity(v) })
 				v := a.flag(key+"/"+id+"/favorite", favorite)
 				if ui.Checkbox(c, v, a.T("Favorite")).Changed() {
 					n := *v
@@ -100,19 +106,17 @@ func (a *App) equipmentInventoryPage(c *ui.Context, slot int) {
 			favorite = x.Favorite()
 			editable = x.CanEdit()
 			canDelete = x.CanDelete()
-			editorForm(c, func() {
-				a.staticField(c, "GemSocket", x.Sockets())
-				names := []string{}
-				for _, cid := range x.EquippedBy() {
-					names = append(names, save.CharacterName(cid, a.Language))
-				}
-				a.staticField(c, "EquippedBy", fmt.Sprint(names))
-				fixed := []string{}
-				for _, gid := range x.FixedGems() {
-					fixed = append(fixed, a.itemName(gid, save.ItemName(gid)))
-				}
-				a.staticField(c, "FixedGem", fmt.Sprint(fixed))
-			})
+			a.staticField(c, "GemSocket", x.Sockets())
+			names := []string{}
+			for _, cid := range x.EquippedBy() {
+				names = append(names, save.CharacterName(cid, a.Language))
+			}
+			a.staticField(c, "EquippedBy", a.namesOrNone(names))
+			fixed := []string{}
+			for _, gid := range x.FixedGems() {
+				fixed = append(fixed, a.itemName(gid, save.ItemName(gid)))
+			}
+			a.staticField(c, "FixedGem", a.namesOrNone(fixed))
 		}
 		a.disabled(c, !editable, func() {
 			v := a.flag(key+"/"+id+"/favorite", favorite)
