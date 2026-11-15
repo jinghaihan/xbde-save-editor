@@ -24,6 +24,16 @@ func (a *App) table(key string) *tableState {
 	a.tables[key] = v
 	return v
 }
+func (a *App) filter(key, initial string) *string {
+	if a.filters == nil {
+		a.filters = map[string]*string{}
+	}
+	if a.filters[key] == nil {
+		value := initial
+		a.filters[key] = &value
+	}
+	return a.filters[key]
+}
 func (a *App) number(key string, current float64) *float64 {
 	v := a.numbers[key]
 	if v == nil {
@@ -165,6 +175,11 @@ func (a *App) list(c *ui.Context, key, title string, rows []row, header listHead
 	if s.Selected >= 0 && s.Selected < len(s.Rows) {
 		selectedID = s.Rows[s.Selected].ID
 	}
+	requested := s.RequestedID != ""
+	if requested {
+		selectedID = s.RequestedID
+		s.RequestedID = ""
+	}
 	ui.Column(c.Key(key)).Fill().Gap(editorAppearance.ControlGap).Children(func() {
 		if title != "" {
 			a.heading(c, title, header.summary)
@@ -180,7 +195,6 @@ func (a *App) list(c *ui.Context, key, title string, rows []row, header listHead
 			}
 		}
 		if selectedID != "" {
-			s.Selected = 0
 			for i, r := range filtered {
 				if r.ID == selectedID {
 					s.Selected = i
@@ -191,7 +205,7 @@ func (a *App) list(c *ui.Context, key, title string, rows []row, header listHead
 		s.Rows = filtered
 		s.Selected = clampIndex(s.Selected, len(filtered))
 		s.List.Selected = &s.Selected
-		if s.Selected >= 0 && (selectedID == "" || filtered[s.Selected].ID != selectedID) {
+		if s.Selected >= 0 && (requested || selectedID == "" || filtered[s.Selected].ID != selectedID) {
 			s.List.Choose(s.Selected)
 		}
 		s.List.Key = func(i int) any { return filtered[i].ID }

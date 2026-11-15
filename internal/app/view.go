@@ -46,6 +46,7 @@ func (a *App) View(c *ui.Context) {
 			ui.Text(c, a.Status).Padding(0, 16, 12)
 		}
 	})
+	a.inventoryDialogView(c)
 	if a.Save != nil && len(a.pending) > 0 && (a.focusedInput == "" || prev != "" && prev != a.focusedInput) {
 		a.ApplyPending("")
 	}
@@ -80,7 +81,8 @@ func (a *App) mainPage(c *ui.Context) {
 			})
 			a.section(c, "Colony6Title", func() {
 				state := &save.ColonyState{}
-				if a.Save != nil && a.Save.Colony6() != nil {
+				available := a.Save != nil && a.Save.Colony6() != nil
+				if available {
 					state = a.Save.Colony6()
 				}
 				a.editorForm(c, func() {
@@ -88,9 +90,16 @@ func (a *App) mainPage(c *ui.Context) {
 						k string
 						v int
 					}{{"Housing", state.Housing}, {"Commerce", state.Commerce}, {"Nature", state.Nature}, {"Special", state.Special}, {"Colony6OverallLevel", state.OverallLevel}, {"Colony6Development", state.Development}, {"Colony6Population", state.Population}} {
-						a.staticField(c, f.k, f.v)
+						var value any = ""
+						if available {
+							value = f.v
+						}
+						a.staticField(c, f.k, value)
 					}
 				})
+				if a.Save != nil && !available {
+					a.note(c, "Unavailable")
+				}
 				if state.UnavailableReason != "" {
 					ui.Text(c, state.UnavailableReason).TextColor(c.Theme().TextMuted)
 				}
@@ -152,7 +161,7 @@ func (a *App) charactersPage(c *ui.Context) {
 			})
 		}
 		if *a.tab("characterTabs") == 1 {
-			a.action(c, "LearnMaxAllArts", a.Save != nil, func(s *save.Document) {
+			a.action(c, "LearnMaxAllArts", a.Save != nil && a.Save.Campaign() != "Unknown", func(s *save.Document) {
 				for _, x := range s.Characters() {
 					x.MaxArts(true)
 				}
@@ -188,12 +197,16 @@ func (a *App) charactersPage(c *ui.Context) {
 }
 func (a *App) characterGeneral(c *ui.Context, id int) {
 	x := a.Save.Character(id)
+	minimumLevel := x.Level()
+	if x.CanEditProgression() {
+		minimumLevel = x.MinimumLevel()
+	}
 	key := "character/" + rid(id)
 	a.sectionColumns(c, func() {
 		ui.Text(c, a.T("General")).Bold()
 		a.editorForm(c, func() {
 			a.disabled(c, !x.CanEditProgression(), func() {
-				a.intChoice(c, "Level", key+"/level", x.Level(), numberedOptions(x.MinimumLevel(), 99), func(v int) { a.stage(key+"/level", func(s *save.Document) { s.Character(id).SetProgression(&v, nil) }) })
+				a.intChoice(c, "Level", key+"/level", x.Level(), numberedOptions(minimumLevel, 99), func(v int) { a.stage(key+"/level", func(s *save.Document) { s.Character(id).SetProgression(&v, nil) }) })
 				a.numberEdit(c, "Experience", key+"/exp", x.Experience(), 0, max(99999999, x.Experience()), func(s *save.Document, v int) { s.Character(id).SetProgression(nil, &v) })
 			})
 			a.numberEdit(c, "AP", key+"/ap", x.AP(), 0, max(99999999, x.AP()), func(s *save.Document, v int) { s.Character(id).SetResources(&v, nil, nil) })
@@ -228,7 +241,7 @@ func (a *App) characterArts(c *ui.Context, id int) {
 		selected := ""
 		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Children(func() {
 			selected = a.list(c, key, "", rows, listHeader{}, func() {
-				a.action(c, "LearnMaxCharacterArts", true, func(s *save.Document) { s.Character(id).MaxArts(true) })
+				a.action(c, "LearnMaxCharacterArts", a.Save.Character(id).CanEditProgression(), func(s *save.Document) { s.Character(id).MaxArts(true) })
 			})
 		})
 		ui.Column(c).Grow(1).Basis(0).MinWidth(0).Gap(8).Children(func() {
@@ -263,6 +276,10 @@ func (a *App) artName(x save.Art) string {
 	return name
 }
 func (a *App) characterSkills(c *ui.Context, id int) {
+	if !a.Save.MainSupported() {
+		a.note(c, "Unavailable")
+		return
+	}
 	a.disabled(c, !a.Save.MainSupported(), func() {
 		trees := a.Save.Character(id).SkillTrees()
 		a.tiles(c, len(trees), func(i int) {

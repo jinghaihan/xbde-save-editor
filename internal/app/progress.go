@@ -68,10 +68,10 @@ func (a *App) affinityPage(c *ui.Context) {
 	})
 }
 func (a *App) achievementsPage(c *ui.Context) {
-	category := draft(a, "achievementCategory", func() string { return "0" })
-	state := draft(a, "achievementState", func() string { return "0" })
+	category := a.filter("achievementCategory", "0")
+	state := a.filter("achievementState", "0")
 	rows := []row{}
-	if a.Save != nil {
+	if a.Save != nil && a.Save.MainSupported() {
 		for _, x := range a.Save.Achievements() {
 			cat := parseID(*category)
 			st := parseID(*state)
@@ -103,6 +103,9 @@ func (a *App) achievementsPage(c *ui.Context) {
 			}
 		})
 	}, func(id string) {
+		if a.Save != nil && !a.Save.MainSupported() {
+			a.note(c, "AchievementsUnavailable")
+		}
 		condition, status, progress, reward := "", "", "", 0
 		unlock, repair := false, false
 		aid := parseID(id)
@@ -120,19 +123,27 @@ func (a *App) achievementsPage(c *ui.Context) {
 			unlock = a.Save.MainSupported() && !x.Completed()
 			repair = a.Save.MainSupported() && x.Unmet()
 		}
-		ui.Text(c, condition)
-		a.editorForm(c, func() {
-			a.staticField(c, "ArtStatus", status)
-			a.staticField(c, "AchievementReward", reward)
-			a.staticField(c, "AchievementProgress", progress)
+		if condition != "" {
+			ui.Text(c, condition)
+		}
+		a.disabled(c, id == "", func() {
+			a.editorForm(c, func() {
+				a.staticField(c, "ArtStatus", status)
+				var rewardValue any = ""
+				if id != "" {
+					rewardValue = reward
+				}
+				a.staticField(c, "AchievementReward", rewardValue)
+				a.staticField(c, "AchievementProgress", progress)
+			})
 		})
 		a.action(c, "UnlockAchievement", unlock, func(s *save.Document) { s.Achievement(aid).Unlock() })
 		a.action(c, "RepairAchievementCounter", repair, func(s *save.Document) { s.Achievement(aid).Repair() })
 	})
 }
 func (a *App) collectionPage(c *ui.Context) {
-	page := draft(a, "collectionPage", func() string { return "0" })
-	state := draft(a, "collectionState", func() string { return "0" })
+	page := a.filter("collectionPage", "0")
+	state := a.filter("collectionState", "0")
 	rows := []row{}
 	opts := []option{{"0", a.T("AllCategories")}}
 	seen := map[int]bool{}
@@ -180,6 +191,9 @@ func (a *App) collectionPage(c *ui.Context) {
 		a.heading(c, "CollectionRewards", "")
 		if a.Save != nil && a.Save.CollectionSupported() && mapID != 0 {
 			plan := a.Save.PlanCollection(a.Save.CollectionIDs(mapID, 0))
+			if len(plan.Rewards) == 0 {
+				a.note(c, "None")
+			}
 			for _, r := range plan.Rewards {
 				ui.Text(c, a.itemName(r.ItemId, r.Name))
 			}

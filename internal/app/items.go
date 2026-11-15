@@ -25,12 +25,7 @@ func (a *App) itemsPage(c *ui.Context) {
 	default:
 		slot := 0
 		if t == 6 {
-			opts := []option{}
-			for i := 1; i <= 5; i++ {
-				opts = append(opts, option{rid(i), a.T(save.SlotNames[i])})
-			}
-			selected := draft(a, "armorSlot", func() string { return "1" })
-			a.combo(c, "Armor", "armorSlot", selected, opts)
+			selected := a.filter("armorSlot", "1")
 			slot = parseID(*selected)
 		}
 		a.equipmentInventoryPage(c, slot)
@@ -44,47 +39,30 @@ func (a *App) inventoryPage(c *ui.Context, kind int) {
 		}
 	}
 	key := "inventory/" + rid(kind)
-	a.split(c, key, save.KindNames[kind], rows, listHeader{}, func() { a.action(c, "MaxQuantities", kind != 12, func(s *save.Document) { s.MaxItems(kind) }) }, func(id string) {
-		a.disabled(c, kind == 12, func() {
-			a.heading(c, "ItemEditor", "")
-			quantity := 0
-			favorite := false
-			editable := false
-			index := parseID(id)
-			if a.Save != nil && id != "" {
-				x := a.Save.Item(kind, index)
-				quantity = x.Quantity()
-				favorite = x.Favorite()
-				editable = x.CanEdit()
+	a.split(c, key, save.KindNames[kind], rows, listHeader{}, func() {
+		id := a.selectedID(key)
+		editable := a.Save != nil && id != "" && a.Save.Item(kind, parseID(id)).CanEdit()
+		canCreate := a.Save != nil && a.Save.Campaign() != "Unknown" && kind != 12
+		ui.Row(c).Gap(8).Children(func() {
+			a.inventoryCommand(c, "Add", canCreate, func() { a.openInventoryDialog("item", key, kind) })
+			a.action(c, "Delete", editable, func(s *save.Document) { s.Item(kind, parseID(id)).Delete() })
+		})
+		a.action(c, "MaxQuantities", canCreate && len(rows) > 0, func(s *save.Document) { s.MaxItems(kind) })
+	}, func(id string) {
+		a.heading(c, "ItemEditor", "")
+		quantity, favorite, editable := 0, false, false
+		index := parseID(id)
+		if a.Save != nil && id != "" {
+			x := a.Save.Item(kind, index)
+			quantity, favorite, editable = x.Quantity(), x.Favorite(), x.CanEdit()
+		}
+		a.disabled(c, !editable, func() {
+			a.numberEdit(c, "Quantity", key+"/"+id+"/quantity", quantity, 1, 99, func(s *save.Document, v int) { s.Item(kind, index).SetQuantity(v) })
+			v := a.flag(key+"/"+id+"/favorite", favorite)
+			if ui.Checkbox(c, v, a.T("Favorite")).Changed() {
+				n := *v
+				a.stage(key+"/"+id+"/favorite", func(s *save.Document) { s.Item(kind, index).SetFavorite(n) })
 			}
-			a.disabled(c, !editable, func() {
-				a.numberEdit(c, "Quantity", key+"/"+id+"/quantity", quantity, 1, 99, func(s *save.Document, v int) { s.Item(kind, index).SetQuantity(v) })
-				v := a.flag(key+"/"+id+"/favorite", favorite)
-				if ui.Checkbox(c, v, a.T("Favorite")).Changed() {
-					n := *v
-					a.stage(key+"/"+id+"/favorite", func(s *save.Document) { s.Item(kind, index).SetFavorite(n) })
-				}
-				a.action(c, "Delete", editable, func(s *save.Document) { s.Item(kind, index).Delete() })
-			})
-			if kind == 12 {
-				return
-			}
-			opts := []option{}
-			for _, def := range save.InventoryDefinitions {
-				if def.Kind == kind {
-					opts = append(opts, option{rid(def.Id), a.itemName(def.Id, def.Name)})
-				}
-			}
-			selected := draft(a, key+"/newID", func() string {
-				if len(opts) > 0 {
-					return opts[0].ID
-				}
-				return ""
-			})
-			quantityDraft := draft(a, key+"/newQty", func() float64 { return 1 })
-			a.combo(c, "AddItem", key+"/newID", selected, opts)
-			a.formNumber(c, "Quantity", key+"/newQty", quantityDraft, 1, 99)
-			a.action(c, "Add", *selected != "", func(s *save.Document) { s.AddItem(parseID(*selected), int(*quantityDraft)) })
 		})
 	})
 }
@@ -96,28 +74,46 @@ func (a *App) equipmentInventoryPage(c *ui.Context, slot int) {
 		}
 	}
 	key := "equipmentInventory/" + rid(slot)
-	a.split(c, key, save.SlotNames[slot], rows, listHeader{}, nil, func(id string) {
+	header := listHeader{}
+	if slot > 0 {
+		header.controls = func() {
+			options := []option{}
+			for i := 1; i <= 5; i++ {
+				options = append(options, option{rid(i), a.T(save.SlotNames[i])})
+			}
+			a.combo(c, "Armor", "armorSlot", a.filter("armorSlot", "1"), options)
+		}
+	}
+	a.split(c, key, save.SlotNames[slot], rows, header, func() {
+		id := a.selectedID(key)
+		canDelete := a.Save != nil && id != "" && a.Save.OwnedEquipment(slot, parseID(id)).CanDelete()
+		canCreate := a.Save != nil && len(a.Save.CreatableEquipment(slot)) > 0
+		ui.Row(c).Gap(8).Children(func() {
+			a.inventoryCommand(c, "Add", canCreate, func() { a.openInventoryDialog("equipment", key, slot) })
+			a.action(c, "Delete", canDelete, func(s *save.Document) { s.OwnedEquipment(slot, parseID(id)).Delete() })
+		})
+		a.inventoryCommand(c, "FillMissingEquipment", canCreate, func() { a.openInventoryDialog("fill", key, slot) })
+	}, func(id string) {
 		a.heading(c, "Equipment", "")
-		favorite := false
-		editable, canDelete := false, false
+		var sockets any = ""
+		names, fixed := []string{}, []string{}
+		favorite, editable := false, false
 		index := parseID(id)
 		if a.Save != nil && id != "" {
 			x := a.Save.OwnedEquipment(slot, index)
-			favorite = x.Favorite()
-			editable = x.CanEdit()
-			canDelete = x.CanDelete()
-			a.staticField(c, "GemSocket", x.Sockets())
-			names := []string{}
+			sockets, favorite, editable = x.Sockets(), x.Favorite(), x.CanEdit()
 			for _, cid := range x.EquippedBy() {
 				names = append(names, save.CharacterName(cid, a.Language))
 			}
-			a.staticField(c, "EquippedBy", a.namesOrNone(names))
-			fixed := []string{}
 			for _, gid := range x.FixedGems() {
 				fixed = append(fixed, a.itemName(gid, save.ItemName(gid)))
 			}
-			a.staticField(c, "FixedGem", a.namesOrNone(fixed))
 		}
+		a.disabled(c, id == "", func() {
+			a.staticField(c, "GemSocket", sockets)
+			a.staticField(c, "EquippedBy", a.namesOrNone(names))
+			a.staticField(c, "FixedGem", a.namesOrNone(fixed))
+		})
 		a.disabled(c, !editable, func() {
 			v := a.flag(key+"/"+id+"/favorite", favorite)
 			if ui.Checkbox(c, v, a.T("Favorite")).Changed() {
@@ -125,33 +121,6 @@ func (a *App) equipmentInventoryPage(c *ui.Context, slot int) {
 				a.stage(key+"/"+id+"/favorite", func(s *save.Document) { s.OwnedEquipment(slot, index).SetFavorite(n) })
 			}
 		})
-		a.action(c, "Delete", canDelete, func(s *save.Document) { s.OwnedEquipment(slot, index).Delete() })
-		opts := []option{}
-		chars := []option{}
-		if a.Save != nil {
-			for _, def := range a.Save.CreatableEquipment(slot) {
-				opts = append(opts, option{rid(def.Id), a.itemName(def.Id, def.Name)})
-			}
-			for _, ch := range a.Save.Characters() {
-				chars = append(chars, option{rid(ch.ID), save.CharacterName(ch.ID, a.Language)})
-			}
-		}
-		selected := draft(a, key+"/newID", func() string {
-			if len(opts) > 0 {
-				return opts[0].ID
-			}
-			return ""
-		})
-		target := draft(a, key+"/target", func() string {
-			if len(chars) > 0 {
-				return chars[0].ID
-			}
-			return ""
-		})
-		a.combo(c, "AddEquipment", key+"/newID", selected, opts)
-		a.action(c, "Add", *selected != "", func(s *save.Document) { s.AddEquipment(parseID(*selected)) })
-		a.combo(c, "EquipmentTarget", key+"/target", target, chars)
-		a.action(c, "FillMissingEquipment", *target != "", func(s *save.Document) { s.FillEquipment(slot, parseID(*target)) })
 	})
 }
 func (a *App) gemDefinitionPicker(c *ui.Context, key string, effect, rank *string, compatible func(save.GemDefinition) bool) *save.GemDefinition {
@@ -197,7 +166,14 @@ func (a *App) gemsPage(c *ui.Context) {
 			}
 		}
 	}
-	a.split(c, "gems", "Gems", rows, listHeader{}, nil, func(id string) {
+	a.split(c, "gems", "Gems", rows, listHeader{}, func() {
+		id := a.selectedID("gems")
+		canDelete := a.Save != nil && id != "" && a.Save.Gem(parseID(id)).CanDelete()
+		ui.Row(c).Gap(8).Children(func() {
+			a.inventoryCommand(c, "Add", a.Save != nil && a.Save.Campaign() != "Unknown", func() { a.openInventoryDialog("gem", "gems", 0) })
+			a.action(c, "Delete", canDelete, func(s *save.Document) { s.Gem(parseID(id)).Delete() })
+		})
+	}, func(id string) {
 		a.heading(c, "GemEditor", "")
 		index := parseID(id)
 		if a.Save != nil && id != "" {
@@ -234,22 +210,18 @@ func (a *App) gemsPage(c *ui.Context) {
 					}
 					a.action(c, "MaxGem", g.CanEdit(), func(s *save.Document) { s.Gem(index).Maximize() })
 				}
-				a.action(c, "Delete", g.CanDelete(), func(s *save.Document) { s.Gem(index).Delete() })
 			})
 		}
-		a.heading(c, "AddGem", "")
-		effect := draft(a, "newGem/effect", func() string { return "" })
-		rank := draft(a, "newGem/rank", func() string { return "1" })
-		rule := a.gemDefinitionPicker(c, "newGem", effect, rank, nil)
-		value := draft(a, "newGem/value/"+*effect+"/"+*rank, func() float64 {
-			if rule != nil {
-				return float64(rule.Minimum)
-			}
-			return 0
-		})
-		if rule != nil {
-			a.formNumber(c, "GemStrength", "newGem/value", value, float64(rule.Minimum), float64(rule.Maximum))
-			a.action(c, "Add", true, func(s *save.Document) { s.AddGem(parseID(*effect), parseID(*rank), int(*value)) })
+		if id == "" {
+			a.disabled(c, true, func() {
+				effect, rank := "", ""
+				value := 0.0
+				a.combo(c, "GemEffect", "emptyGem/effect", &effect, nil)
+				a.combo(c, "GemRank", "emptyGem/rank", &rank, nil)
+				a.formNumber(c, "GemStrength", "emptyGem/value", &value, 0, 0)
+				a.staticField(c, "GemChance", "")
+				a.action(c, "MaxGem", false, func(*save.Document) {})
+			})
 		}
 	})
 }

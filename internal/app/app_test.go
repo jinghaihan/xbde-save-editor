@@ -306,6 +306,12 @@ func TestEmptyInventoryKeepsCreationControls(t *testing.T) {
 	if err := tt.Click(a.T("Add")); err != nil {
 		t.Fatal(err)
 	}
+	if a.inventoryDialog == nil || len(a.Save.Inventory(13)) != 0 {
+		t.Fatal("Add must open its parameters without changing inventory")
+	}
+	if err := tt.Click(a.T("Add")); err != nil {
+		t.Fatal(err)
+	}
 	if len(a.Save.Inventory(13)) != 1 {
 		t.Fatalf("Add did not create one manual: %s", a.Status)
 	}
@@ -366,14 +372,65 @@ func TestDetailCaptionAlignment(t *testing.T) {
 			*a.tab("itemTabs") = 5
 			a.revision++
 			tt.Frame()
-			aligned("Equipment", "GemSocket", "EquippedBy", "FixedGem", "AddEquipment", "EquipmentTarget")
-			left := caption("Equipment").Bounds.X
+			aligned("Equipment", "GemSocket", "EquippedBy", "FixedGem")
+			left := caption("Weapon").Bounds.X
+			right := caption("Equipment").Bounds.X
 			for _, key := range []string{"Delete", "Add", "FillMissingEquipment"} {
 				button, ok := tt.AccessByRole(ui.RoleButton, a.T(key))
-				if !ok || math.Abs(float64(button.Bounds.X-left)) > .5 {
-					t.Errorf("%s does not start at the detail column: %+v", key, button.Bounds)
+				if !ok || button.Bounds.X < left-.5 || button.Bounds.X+button.Bounds.W >= right {
+					t.Errorf("%s must belong to the inventory list: %+v", key, button.Bounds)
 				}
 			}
+			if _, ok := tt.AccessByRole(ui.RoleText, a.T("EquipmentTarget")); ok {
+				t.Error("bulk action parameters are permanently visible in the detail panel")
+			}
+		}
+	}
+}
+
+func TestUnconfirmedCampaignKeepsPagesReadable(t *testing.T) {
+	a := fixture(t)
+	raw := a.Save.Bytes()
+	raw[save.PartyOffset+24] = 1
+	var err error
+	a.Save, err = save.Parse(raw)
+	if err != nil || a.Save.Campaign() != "Unknown" {
+		t.Fatal("fixture must be an unconfirmed campaign", err)
+	}
+	tt := ui.NewTester(a.View, 860, 600)
+	for page := range pages {
+		key, count := "", 1
+		switch page {
+		case 1:
+			key, count = "characterTabs", 5
+		case 2:
+			key, count = "itemTabs", 7
+		case 3:
+			key, count = "affinityTabs", 2
+		}
+		for sub := 0; sub < count; sub++ {
+			a.Page = page
+			if key != "" {
+				*a.tab(key) = sub
+			}
+			a.revision++
+			tt.Frame()
+			bounds(t, tt, 860)
+		}
+	}
+}
+
+func TestProgressFiltersSurviveActions(t *testing.T) {
+	a := fixture(t)
+	for _, key := range []string{"achievementCategory", "achievementState", "collectionPage", "collectionState"} {
+		*a.filter(key, "0") = "2"
+	}
+	if !a.perform(func(*save.Document) {}) {
+		t.Fatal(a.Status)
+	}
+	for _, key := range []string{"achievementCategory", "achievementState", "collectionPage", "collectionState"} {
+		if *a.filter(key, "0") != "2" {
+			t.Fatalf("action reset %s", key)
 		}
 	}
 }

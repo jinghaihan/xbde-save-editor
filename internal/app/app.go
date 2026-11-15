@@ -25,10 +25,11 @@ var languages = []struct{ Code, Name string }{{"en", "English"}, {"zh-Hans", "ç®
 type edit func(*save.Document)
 type row struct{ ID, Name, Value string }
 type tableState struct {
-	List     ui.ListState
-	Query    string
-	Selected int
-	Rows     []row
+	List        ui.ListState
+	Query       string
+	Selected    int
+	Rows        []row
+	RequestedID string
 }
 type App struct {
 	invalid                map[string]string
@@ -44,10 +45,12 @@ type App struct {
 	texts, choices         map[string]*string
 	flags                  map[string]*bool
 	drafts                 map[string]any
+	filters                map[string]*string
 	pending                map[string]edit
 	pendingOrder           []string
 	focusedInput           string
 	form                   *formLayout
+	inventoryDialog        *inventoryDialog
 	revision               int
 	dark                   bool
 	preferencesPath        string
@@ -107,10 +110,12 @@ func (a *App) Load(path string) error {
 	a.pending = map[string]edit{}
 	a.pendingOrder = nil
 	a.focusedInput = ""
+	a.inventoryDialog = nil
 	a.numbers = map[string]*float64{}
 	a.choices = map[string]*string{}
 	a.flags = map[string]*bool{}
 	a.drafts = map[string]any{}
+	a.filters = map[string]*string{}
 	a.tables = map[string]*tableState{}
 	a.revision++
 	if a.win != nil {
